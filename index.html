@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini CAT v14.2 | Layout Saver Edition</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0b57d0;
+            --primary-hover: #0842a0;
+            --surface: #ffffff;
+            --surface-container: #f0f4f9;
+            --outline-variant: #c4c7c5;
+            --text: #1f1f1f;
+            --text-secondary: #444746;
+            --gemini-gradient: linear-gradient(90deg, #4b90ff, #ff5546);
+        }
+
+        body {
+            font-family: "Google Sans", "Roboto", sans-serif;
+            background: var(--surface-container);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .app-container {
+            max-width: 1400px;
+            height: 100%;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .app-container { grid-template-columns: 1fr; grid-template-rows: auto 1fr; overflow-y: auto; }
+            body { overflow: auto; height: auto; }
+        }
+        
+        /* Panels */
+        .panel {
+            background: var(--surface);
+            border-radius: 24px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #fff;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .panel-header { padding: 24px 24px 10px 24px; flex-shrink: 0; background: var(--surface); z-index: 2; }
+        .panel-scroll-content { flex: 1; overflow-y: auto; padding: 0 24px 20px 24px; scrollbar-width: thin; }
+        .panel-footer { padding: 15px 24px; border-top: 1px solid var(--surface-container); background: var(--surface); flex-shrink: 0; font-size: 0.85rem; color: var(--text-secondary); display:flex; justify-content:space-between; }
+        
+        h2 { margin: 0; font-size: 1.25rem; color: var(--text); display: flex; align-items: center; gap: 12px; font-weight: 500; }
+        h2 svg { width: 24px; height: 24px; fill: var(--primary); }
+
+        /* Controls */
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 500; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px; margin-left: 4px; }
+        
+        input, select, textarea {
+            padding: 12px 16px;
+            border: 1px solid var(--outline-variant);
+            border-radius: 8px;
+            font-family: inherit; font-size: 0.95rem;
+            background: var(--surface); width: 100%;
+            box-sizing: border-box; color: var(--text);
+            transition: all 0.2s;
+        }
+        input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+        textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+
+        /* Buttons */
+        .action-bar { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+        
+        button {
+            background: #e9eef6; color: var(--primary);
+            border: none; padding: 14px; border-radius: 100px;
+            cursor: pointer; font-weight: 500; font-size: 0.95rem;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            transition: all 0.2s; position: relative; overflow: hidden; width: 100%;
+        }
+        button:hover:not(:disabled) { background: #d3e3fd; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+        button:disabled { background: #f1f3f4; color: #bdc1c6; cursor: not-allowed; }
+
+        #btnTrans { background: var(--primary); color: white; }
+        #btnTrans:hover:not(:disabled) { background: var(--primary-hover); }
+        
+        #btnPolish { background: linear-gradient(135deg, #fff 0%, #f0f4f9 100%); color: var(--text); border: 1px solid #e1e3e1; }
+        #btnPolish::before {
+            content: ""; position: absolute; top: 0; left: 0; right: 0; bottom: 0; border-radius: 100px; padding: 2px;
+            background: var(--gemini-gradient); 
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none;
+        }
+
+        /* Preview Table */
+        .preview-wrapper { flex: 1; overflow: hidden; border: 1px solid var(--outline-variant); border-radius: 12px; display: flex; flex-direction: column; }
+        .table-scroll { flex: 1; overflow: auto; background: #fff; scroll-behavior: smooth; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 0.9rem; table-layout: fixed; }
+        th { text-align: left; padding: 16px; background: #f8f9fa; position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--outline-variant); color: var(--text-secondary); font-weight: 500; }
+        td { padding: 16px; border-bottom: 1px solid #f0f0f0; vertical-align: top; word-wrap: break-word; color: var(--text); line-height: 1.6; }
+        
+        .tag { color: #0b57d0; font-family: 'Roboto Mono', monospace; font-size: 0.85em; background: #e8f0fe; padding: 2px 5px; border-radius: 4px; margin: 0 2px; }
+        .badge { background: linear-gradient(90deg, #4b90ff, #ff5546); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; vertical-align: middle; margin-left: 5px; }
+        .status-badge { background: #e8f0fe; color: #0b57d0; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: #c4c7c5; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #747775; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="panel">
+        <div class="panel-header">
+            <h2>
+                <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+                Gemini 控制台
+            </h2>
+        </div>
+
+        <div class="panel-scroll-content">
+            <div class="control-group">
+                <label for="apiKey">Gemini API Key</label>
+                <input type="password" id="apiKey" placeholder="Paste AIza key here..." onchange="ENGINE.saveKey()">
+            </div>
+
+            <div class="control-group">
+                <label for="model">AI Model</label>
+                <select id="model">
+                    </select>
+                <div style="font-size:0.75rem; color:#666; margin-top:4px;">
+                    ℹ️ 2.0 Flash 優先，額度用盡自動切換至 2.5 Flash。
+                </div>
+            </div>
+
+            <div class="control-group" style="background:var(--surface-container); padding:12px; border-radius:12px;">
+                <label>語言設定</label>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <select id="sourceLang" style="flex:1"></select>
+                    <span style="color:#999">➜</span>
+                    <select id="targetLang" style="flex:1"></select>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="glossary">術語與背景 (Context)</label>
+                <textarea id="glossary" placeholder="例如：Project X=X計畫..."></textarea>
+            </div>
+
+            <hr style="border:none; border-top:1px solid #eee; margin:20px 0;">
+
+            <div class="control-group">
+                <label>檔案選擇</label>
+                <input type="file" id="fileInput" accept=".pptx,.docx,.xlsx,.txt" style="border:2px dashed #ccc;">
+            </div>
+
+            <div class="action-bar">
+                <button onclick="ENGINE.loadAndParse()" id="btnParse">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
+                    1. 解析檔案
+                </button>
+                
+                <button onclick="ENGINE.translate()" id="btnTrans" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0014.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04z"/></svg>
+                    2. 初步翻譯
+                </button>
+
+                <div style="background:var(--surface-container); padding:10px; border-radius:12px; margin-top:5px;">
+                    <label style="margin-bottom:5px;">潤稿風格</label>
+                    <select id="polishStyle" style="margin-bottom:8px;">
+                        <option value="standard">✨ 標準流暢 (Standard)</option>
+                        <option value="literary">✒️ 文學優美 (Literary)</option>
+                        <option value="technical">🔧 技術精準 (Technical)</option>
+                    </select>
+                    <button onclick="ENGINE.polish()" id="btnPolish" disabled>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="url(#grad1)"><defs><linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#4b90ff;stop-opacity:1" /><stop offset="100%" style="stop-color:#ff5546;stop-opacity:1" /></linearGradient></defs><path d="M19 9l1.25-2.75L23 5l-2.75-1.25L19 1l-1.25 2.75L15 5l2.75 1.25L19 9zm-7.5.5L9 4 6.5 9.5 1 12l5.5 2.5L9 20l2.5-5.5L17 12l-5.5-2.5z"/></svg>
+                        3. 深度潤稿 (Context Aware)
+                    </button>
+                </div>
+
+                <button onclick="ENGINE.download()" id="btnDown" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    4. 下載成品
+                </button>
+            </div>
+        </div>
+        
+        <div class="panel-footer">
+            <span id="status">Ready</span>
+            <span class="status-badge" id="fileInfo">No File</span>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header" style="border-bottom:1px solid var(--outline-variant); background:var(--surface);">
+            <h2 style="margin:0; font-size:1.1rem;">
+                <svg viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                即時預覽 <span id="segCount" style="font-weight:400; font-size:0.9rem; color:var(--text-secondary); margin-left:10px;"></span>
+            </h2>
+        </div>
+        <div class="preview-wrapper">
+            <div class="table-scroll">
+                <table id="previewTable">
+                    <thead>
+                        <tr><th style="width:60px">ID</th><th style="width:45%">原文 (Source)</th><th>譯文 (Target)</th></tr>
+                    </thead>
+                    <tbody id="previewBody">
+                        <tr><td colspan="3" style="text-align:center; padding:50px; color:#999;">請先載入並解析檔案</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * Gemini CAT v14.2 - Layout Saver Edition
+ * Fixes: Vertical text fragmentation & Japanese font size overflow.
+ */
+
+const MODEL_LIST = [
+    { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash (Exp)' },
+    { id: 'gemini-2.5-flash',     name: 'Gemini 2.5 Flash' },
+    { id: 'gemini-3-flash-preview',name: 'Gemini 3 Flash (Prev)' },
+    { id: 'gemini-3-pro-preview',  name: 'Gemini 3 Pro (Prev)' }
+];
+
+const LANGS = [
+    { code: 'zh-TW', name: '🇹🇼 繁體中文 (台灣)' },
+    { code: 'zh-CN', name: '🇨🇳 簡體中文' },
+    { code: 'en',    name: '🇺🇸 English' },
+    { code: 'ja',    name: '🇯🇵 日本語' },
+    { code: 'ko',    name: '🇰🇷 韓語' },
+    { code: 'vi',    name: '🇻🇳 越南語' },
+    { code: 'th',    name: '🇹🇭 泰語' },
+    { code: 'id',    name: '🇮🇩 印尼語' },
+    { code: 'de',    name: '🇩🇪 德語' },
+    { code: 'fr',    name: '🇫🇷 法語' },
+    { code: 'es',    name: '🇪🇸 西班牙語' }
+];
+
+const NS = {
+    p:  "http://schemas.openxmlformats.org/presentationml/2006/main",
+    a:  "http://schemas.openxmlformats.org/drawingml/2006/main",
+    dgm:"http://schemas.openxmlformats.org/drawingml/2006/diagram",
+    r:  "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    w:  "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+};
+
+const ENGINE = {
+    zip: null,
+    fileType: null,
+    originalFileName: null, 
+    segments: [],      
+    relMap: {},        
+    loadedDocs: {},    
+    
+    init() {
+        const savedKey = localStorage.getItem('gemini_api_key');
+        if (savedKey) document.getElementById('apiKey').value = savedKey;
+        const modelSel = document.getElementById('model');
+        modelSel.innerHTML = MODEL_LIST.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+        this.initLangs();
+    },
+
+    initLangs() {
+        const srcSel = document.getElementById('sourceLang');
+        const tgtSel = document.getElementById('targetLang');
+        const opts = LANGS.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
+        srcSel.innerHTML = `<option value="Auto Detect">🤖 自動偵測 (Auto)</option>` + opts;
+        tgtSel.innerHTML = opts;
+        tgtSel.value = '🇹🇼 繁體中文 (台灣)';
+        document.getElementById('targetLang').value = '🇯🇵 日本語'; // Default to JP for this use case
+    },
+
+    saveKey() {
+        const key = document.getElementById('apiKey').value.trim();
+        if (key) localStorage.setItem('gemini_api_key', key);
+    },
+
+    ui: {
+        status: (msg) => document.getElementById('status').innerText = msg,
+        render: () => {
+            const tbody = document.getElementById('previewBody');
+            document.getElementById('segCount').innerText = `(${ENGINE.segments.length} segments)`;
+            if (ENGINE.segments.length === 0) { tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;">Empty</td></tr>'; return; }
+            tbody.innerHTML = ENGINE.segments.slice(0, 100).map(s => {
+                const visSrc = (s.source||"").replace(/{{(\d+)}}/g, '<span class="tag">{{$1}}</span>').replace(/{{\/(\d+)}}/g, '<span class="tag">{{/$1}}</span>');
+                const visTgt = (s.target||"").replace(/{{(\d+)}}/g, '<span class="tag">{{$1}}</span>').replace(/{{\/(\d+)}}/g, '<span class="tag">{{/$1}}</span>');
+                const badge = s.meta && s.meta.containerType === 'smartart' ? '<span class="badge">SmartArt</span>' : '';
+                return `<tr><td>${s.id+1}</td><td>${visSrc}${badge}</td><td>${visTgt}</td></tr>`;
+            }).join('');
+        }
+    },
+
+    async loadAndParse() {
+        if (typeof JSZip === 'undefined') return alert("JSZip library missing.");
+        const file = document.getElementById('fileInput').files[0];
+        if (!file) return alert("請先選擇檔案");
+        try {
+            this.ui.status("Parsing file...");
+            this.zip = await JSZip.loadAsync(file);
+            this.fileType = file.name.split('.').pop().toLowerCase();
+            this.originalFileName = file.name;
+            this.segments = []; this.relMap = {}; this.loadedDocs = {};
+
+            if (this.fileType === 'pptx') await this.parsePPTX();
+            else if (this.fileType === 'docx') await this.parseDOCX();
+            else if (this.fileType === 'xlsx') await this.parseXLSX();
+            else if (this.fileType === 'txt') await this.parseTXT(file);
+            else throw new Error("Unsupported format");
+
+            this.ui.status(`Parsed ${this.segments.length} segments.`);
+            this.ui.render();
+            document.getElementById('btnTrans').disabled = false;
+            document.getElementById('fileInfo').innerText = `${this.fileType.toUpperCase()} | ${(file.size/1024).toFixed(1)}KB`;
+        } catch (e) { console.error(e); alert(`Parse Error: ${e.message}`); }
+    },
+
+    async translate() { await this.runBatchProcess('translate'); },
+    async polish() { await this.runBatchProcess('polish'); },
+
+    prepareContextBatch(segments, batchSize) {
+        const batches = [];
+        for (let i = 0; i < segments.length; i += batchSize) {
+            batches.push(segments.slice(i, i + batchSize));
+        }
+        return batches;
+    },
+
+    async runBatchProcess(mode) {
+        const apiKey = document.getElementById('apiKey').value;
+        if (!apiKey) return alert("Missing API Key");
+        this.saveKey();
+
+        const glossary = document.getElementById('glossary').value;
+        const style = document.getElementById('polishStyle').value;
+        const srcLang = document.getElementById('sourceLang').value;
+        const tgtLang = document.getElementById('targetLang').value;
+
+        const btn = mode === 'translate' ? document.getElementById('btnTrans') : document.getElementById('btnPolish');
+        const oldHtml = btn.innerHTML;
+        btn.disabled = true; btn.innerHTML = mode === 'translate' ? 'Processing...' : 'Polishing...';
+
+        const todos = mode === 'translate' 
+            ? this.segments.filter(s => !s.target) 
+            : this.segments.filter(s => s.target && s.target.trim());
+
+        if (todos.length === 0) { alert("Nothing to process."); btn.innerHTML = oldHtml; btn.disabled = false; return; }
+
+        const BATCH_SIZE = mode === 'polish' ? 5 : 10;
+        const batches = this.prepareContextBatch(todos, BATCH_SIZE);
+        let currentModel = document.getElementById('model').value;
+
+        for (let i = 0; i < batches.length; i++) {
+            const batch = batches[i];
+            const processedCount = i * BATCH_SIZE;
+            this.ui.status(`${mode}: ${processedCount}/${todos.length} (Model: ${currentModel})`);
+
+            let payload;
+            if (mode === 'polish') {
+                payload = batch.map(s => ({ id: s.id, original: s.source, draft: s.target }));
+            } else {
+                payload = batch.map(s => ({ id: s.id, text: s.source }));
+            }
+
+            try {
+                const sysPrompt = this.getPrompt(mode, style, glossary, srcLang, tgtLang, batch.length);
+                const results = await this.callAIWithFallback(apiKey, sysPrompt, payload, currentModel);
+                
+                if (results.usedModel && results.usedModel !== currentModel) {
+                    currentModel = results.usedModel;
+                    document.getElementById('model').value = currentModel;
+                }
+
+                results.data.forEach(res => {
+                    const seg = this.segments.find(s => s.id === res.id);
+                    if (seg && res.target) seg.target = res.target;
+                });
+                this.ui.render();
+            } catch (e) { console.error(`Batch ${i} failed`, e); }
+        }
+
+        this.ui.status("Process Complete.");
+        btn.innerHTML = oldHtml; btn.disabled = false;
+        if(mode==='translate') {
+            document.getElementById('btnPolish').disabled = false;
+            document.getElementById('btnDown').disabled = false;
+        }
+    },
+
+    async callAIWithFallback(key, system, data, preferredModel) {
+        try {
+            const dataRes = await this.callAI(key, system, data, preferredModel);
+            return { data: dataRes, usedModel: preferredModel };
+        } catch (e) {
+            const isQuotaError = e.message.includes('429') || e.message.includes('503');
+            if (isQuotaError && preferredModel.includes('gemini-2.0-flash')) {
+                const fallbackModel = 'gemini-2.5-flash';
+                document.getElementById('status').innerText = `⚠️ 2.0 Quota Hit! Switching to ${fallbackModel}...`;
+                const retryRes = await this.callAI(key, system, data, fallbackModel);
+                return { data: retryRes, usedModel: fallbackModel };
+            }
+            throw e;
+        }
+    },
+
+    async callAI(key, system, data, modelId) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${key}`;
+        const body = {
+            systemInstruction: { parts: [{ text: system }] },
+            contents: [{ role: 'user', parts: [{ text: JSON.stringify(data) }] }],
+            generationConfig: { responseMimeType: "application/json" }
+        };
+        const r = await fetch(url, { method: 'POST', body: JSON.stringify(body), headers: {'Content-Type': 'application/json'} });
+        if(!r.ok) { const err = await r.json(); throw new Error(err.error?.message || r.statusText); }
+        return JSON.parse((await r.json()).candidates[0].content.parts[0].text);
+    },
+
+    getPrompt(mode, style, glossary, src, tgt, count) {
+        const glossaryText = glossary ? `Glossary: ${glossary.replace(/\n/g, ', ')}` : "";
+        
+        // --- IMPROVED PROMPT FOR VERTICAL TEXT ---
+        const commonInstructions = `
+        CRITICAL HANDLING FOR VERTICAL TEXT:
+        - If you see a sequence of single characters (e.g., "服", "務", "項", "目") that form a word in ${src}, TREAT THEM AS ONE WORD contextually.
+        - Translate the whole word ("Service Items"), then distribute the result into the output JSON.
+        - If the translated word has fewer characters, leave extra IDs as empty strings. 
+        - If it has more characters, try to fit them or combine slightly.
+        `;
+
+        if (mode === 'translate') {
+            return `
+            Role: Professional Translator (${src} -> ${tgt}).
+            Task: Translate JSON array.
+            ${glossaryText}
+            ${commonInstructions}
+            Rules:
+            1. Output JSON: [{"id": n, "target": "string"}]
+            2. Exact Count: ${count} items.
+            `;
+        } 
+        else if (mode === 'polish') {
+            return `
+            Role: Expert Editor. 
+            Task: Polish "draft" based on "original" context.
+            Language: ${tgt}.
+            ${glossaryText}
+            ${commonInstructions}
+            
+            Style: ${style}.
+            Rules:
+            1. Context First: Fix broken vertical text flow.
+            2. Output strictly JSON: [{"id": n, "target": "polished_string"}]
+            3. Return exactly ${count} items.
+            `;
+        }
+    },
+
+    // --- Parser & Downloader (with Font Fix) ---
+    async parsePPTX() {
+        await this.buildRelMap();
+        const slideFiles = Object.keys(this.zip.files).filter(f => f.match(/^ppt\/slides\/slide\d+\.xml$/));
+        for (const path of slideFiles) {
+            const xml = await this.zip.file(path).async('string');
+            const doc = new DOMParser().parseFromString(xml, "text/xml");
+            this.loadedDocs[path] = doc;
+            this.visitNode(doc.documentElement);
+        }
+        await this.processSmartArtRobust(); 
+    },
+    
+    // (Existing parse logic maintained for compatibility - abridged for brevity but functional)
+    async processSmartArtRobust() {
+        const dataFiles = Object.keys(this.zip.files).filter(name => name.match(/^ppt\/diagrams\/data\d*\.xml$/i));
+        const existingTexts = new Set(this.segments.map(s => s.source));
+        for (const filePath of dataFiles) {
+            const xml = await this.zip.file(filePath).async('string');
+            const doc = new DOMParser().parseFromString(xml, "text/xml");
+            this.loadedDocs[filePath] = doc; 
+            const ptNodes = doc.getElementsByTagNameNS(NS.dgm, 'pt');
+            for (let i = 0; i < ptNodes.length; i++) {
+                const pt = ptNodes[i];
+                if (['doc', 'parTrans', 'sibTrans', 'pres'].includes(pt.getAttribute('type'))) continue;
+                const tNodes = pt.getElementsByTagNameNS(NS.a, 't');
+                let fullText = "";
+                for (let j = 0; j < tNodes.length; j++) fullText += tNodes[j].textContent || "";
+                fullText = fullText.trim();
+                if (fullText && !existingTexts.has(fullText)) {
+                    this.segments.push({
+                        id: this.segments.length, source: fullText, target: "",
+                        meta: { containerType: 'smartart', file: filePath, ptIndex: i }
+                    });
+                    existingTexts.add(fullText);
+                }
+            }
+        }
+    },
+    visitNode(node) {
+        if (node.nodeType !== 1) return;
+        if (node.localName === 'sp') {
+            const txBody = node.getElementsByTagNameNS(NS.p, 'txBody')[0] || node.getElementsByTagNameNS(NS.a, 'txBody')[0];
+            if (txBody) this.extractTextBody(txBody, 'a', 'standard');
+            return;
+        }
+        if (node.localName === 'graphicFrame') {
+            const tbl = node.getElementsByTagNameNS(NS.a, 'tbl')[0];
+            if (tbl) this.genericTraversal(tbl);
+            return;
+        }
+        if (node.localName === 'grpSp') {
+            for (let i = 0; i < node.children.length; i++) this.visitNode(node.children[i]);
+            return;
+        }
+        for (let i = 0; i < node.children.length; i++) this.visitNode(node.children[i]);
+    },
+    genericTraversal(node) {
+        const bodies = node.getElementsByTagNameNS(NS.a, 'txBody');
+        for (let b of bodies) this.extractTextBody(b, 'a', 'generic');
+    },
+    extractTextBody(txBody, nsType, containerType) {
+        const ns = nsType === 'w' ? NS.w : NS.a;
+        const paras = txBody.getElementsByTagNameNS(ns, 'p');
+        for (let p of paras) this.processParagraph(p, ns, containerType);
+    },
+    processParagraph(pNode, ns, containerType) {
+        let runs = Array.from(pNode.getElementsByTagNameNS(ns, 'r'));
+        if (runs.length === 0) {
+            const directT = pNode.getElementsByTagNameNS(ns, 't');
+            if (directT.length > 0) runs = Array.from(directT).map(t => ({isSimple:true, node:t}));
+            else return;
+        }
+        let fullText = ""; let references = [];
+        for (let run of runs) {
+            let text = "", tNode = null;
+            if (run.isSimple) { tNode = run.node; text = tNode.textContent; }
+            else { const tTag = run.getElementsByTagNameNS(ns, 't')[0]; if (tTag) { tNode = tTag; text = tNode.textContent; } }
+            if (text && text.trim().length > 0) {
+                const clean = text.trim();
+                if (['Text', '[Text]'].includes(clean)) continue;
+                const tagId = references.length;
+                fullText += `{{${tagId}}}${text}{{/${tagId}}}`;
+                references.push({ node: tNode });
+            }
+        }
+        if (fullText.trim()) this.segments.push({ id: this.segments.length, source: fullText, target: "", refs: references, meta: { containerType } });
+    },
+    async parseDOCX() {
+        const path = 'word/document.xml'; const xml = await this.zip.file(path).async('string');
+        const doc = new DOMParser().parseFromString(xml, "text/xml"); this.loadedDocs[path] = doc;
+        const paras = doc.getElementsByTagNameNS(NS.w, 'p');
+        for (let p of paras) this.processParagraph(p, NS.w, 'docx');
+    },
+    async parseXLSX() {
+        const path = 'xl/sharedStrings.xml'; if (!this.zip.file(path)) return;
+        const xml = await this.zip.file(path).async('string'); const doc = new DOMParser().parseFromString(xml, "text/xml"); this.loadedDocs[path] = doc;
+        const items = doc.getElementsByTagName('si');
+        for (let si of items) {
+            const tNodes = si.getElementsByTagName('t'); let fullText = "", refs = [];
+            for (let t of tNodes) { if(t.textContent.trim()){ const id = refs.length; fullText += `{{${id}}}${t.textContent}{{/${id}}}`; refs.push({node:t}); }}
+            if(fullText) this.segments.push({id: this.segments.length, source: fullText, target: "", refs: refs, meta:{containerType:'xlsx'}});
+        }
+    },
+    async parseTXT(file) {
+        const text = await file.text();
+        text.split('\n').forEach(line => { if(line.trim()) this.segments.push({id: this.segments.length, source: line.trim(), target: '', refs: null}); });
+    },
+    async buildRelMap() {
+        const relFiles = Object.keys(this.zip.files).filter(f => f.endsWith('.rels'));
+        for (let path of relFiles) {
+            const xml = await this.zip.file(path).async('string');
+            const doc = new DOMParser().parseFromString(xml, "text/xml");
+            const rels = doc.getElementsByTagName('Relationship');
+            let ownerPath = path.replace('_rels/', '').replace('.rels', '');
+            if (!this.relMap[ownerPath]) this.relMap[ownerPath] = {};
+            for (let r of rels) this.relMap[ownerPath][r.getAttribute('Id')] = r.getAttribute('Target');
+        }
+    },
+
+    // --- Download with Font Fix ---
+    async download() {
+        this.ui.status("Packaging & Adjusting Layout...");
+        const serializer = new XMLSerializer();
+        const targetLang = document.getElementById('targetLang').value;
+        const isTargetJP = targetLang.includes('日本語') || targetLang.includes('Japanese');
+
+        for (const seg of this.segments) {
+            if (!seg.target || seg.meta?.containerType === 'smartart' || !seg.refs) continue;
+            
+            // Apply text
+            if (!seg.target.includes('{{')) {
+                if(seg.refs[0]) {
+                    this.applyTextAndStyle(seg.refs[0].node, seg.target, isTargetJP);
+                }
+                for(let k=1; k<seg.refs.length; k++) seg.refs[k].node.textContent = "";
+            } else {
+                const regex = /{{(\d+)}}(.*?){{\/\1}}/g; let match;
+                while ((match = regex.exec(seg.target)) !== null) {
+                    const id = parseInt(match[1]); const text = match[2];
+                    if (seg.refs[id]) {
+                        this.applyTextAndStyle(seg.refs[id].node, text, isTargetJP);
+                    }
+                }
+            }
+        }
+        await this.exportSmartArt();
+        
+        for (const [path, doc] of Object.entries(this.loadedDocs)) this.zip.file(path, serializer.serializeToString(doc));
+        if (this.fileType === 'pptx') {
+            const drawings = Object.keys(this.zip.files).filter(f => f.match(/ppt\/diagrams\/drawing\d+\.xml/));
+            drawings.forEach(f => this.zip.remove(f));
+        }
+
+        const langCode = LANGS.find(l => l.name === targetLang)?.code || 'translated';
+        let newName = `translated_${Date.now()}.${this.fileType}`;
+        if (this.originalFileName) {
+            const lastDot = this.originalFileName.lastIndexOf('.');
+            const base = lastDot !== -1 ? this.originalFileName.substring(0, lastDot) : this.originalFileName;
+            const ext = lastDot !== -1 ? this.originalFileName.substring(lastDot) : '';
+            newName = `${base}_${langCode}${ext}`;
+        }
+
+        const blob = await this.zip.generateAsync({type:"blob"});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = newName; a.click();
+        this.ui.status("下載完成！");
+    },
+
+    // New Helper: Apply Text AND Adjust Font for CJK->JP
+    applyTextAndStyle(node, text, isTargetJP) {
+        node.textContent = text;
+        
+        // Find the <a:r> or <w:r> parent
+        let runNode = node.parentNode;
+        if (!runNode) return;
+        
+        // Find or Create <a:rPr> (Run Properties)
+        let rPr = runNode.getElementsByTagNameNS(NS.a, 'rPr')[0];
+        if (!rPr && node.namespaceURI === NS.a) {
+            // Only strictly creating if we are in PPT/DrawingML context
+             // Note: Creating rPr from scratch is risky if not placed correctly. 
+             // We only modify if exists to be safe, or if we can safely insert.
+             // For now, let's just modify existing properties to avoid XML corruption.
+        }
+
+        if (rPr && isTargetJP) {
+            // 1. Force Language to JA (prevents system fallback fonts)
+            rPr.setAttribute('lang', 'ja-JP');
+            rPr.setAttribute('altLang', 'en-US');
+
+            // 2. Auto-Shrink Font (The "Layout Saver")
+            // Japanese visual density > Chinese. 
+            // We reduce font size (sz) by 15% to maintain layout.
+            let currentSz = parseInt(rPr.getAttribute('sz'));
+            if (currentSz) {
+                let newSz = Math.floor(currentSz * 0.85); // 85% scale
+                if (newSz < 500) newSz = 500; // Min 5pt
+                rPr.setAttribute('sz', newSz);
+            }
+        }
+    },
+
+    async exportSmartArt() {
+        const smartArtSegs = this.segments.filter(s => s.meta?.containerType === 'smartart' && s.target);
+        if (smartArtSegs.length === 0) return;
+        const transMap = new Map();
+        smartArtSegs.forEach(seg => transMap.set(seg.meta.file + '#' + seg.meta.ptIndex, seg.target));
+        const affectedFiles = new Set(smartArtSegs.map(s => s.meta.file));
+        for (const filePath of affectedFiles) {
+            let doc = this.loadedDocs[filePath];
+            const ptNodes = doc.getElementsByTagNameNS(NS.dgm, 'pt');
+            for (let i = 0; i < ptNodes.length; i++) {
+                const key = filePath + '#' + i;
+                if (transMap.has(key)) {
+                    const translation = transMap.get(key);
+                    const tNodes = ptNodes[i].getElementsByTagNameNS(NS.a, 't');
+                    if (tNodes.length > 0) {
+                        this.applyTextAndStyle(tNodes[0], translation, document.getElementById('targetLang').value.includes('Japanese'));
+                        for (let k = 1; k < tNodes.length; k++) tNodes[k].textContent = "";
+                    }
+                }
+            }
+        }
+    }
+};
+
+ENGINE.init();
+</script>
+</body>
+</html>
